@@ -1,16 +1,20 @@
 'use client'
 
-import { cn } from '@/lib/utils'
-import { ChatList } from '@/components/chat-list'
-import { ChatPanel } from '@/components/chat-panel'
-import { EmptyScreen } from '@/components/empty-screen'
-import { useLocalStorage } from '@/lib/hooks/use-local-storage'
-import { useEffect, useState } from 'react'
-import { useUIState, useAIState } from 'ai/rsc'
-import { Message, Session } from '@/lib/types'
-import { usePathname, useRouter } from 'next/navigation'
-import { useScrollAnchor } from '@/lib/hooks/use-scroll-anchor'
-import { toast } from 'sonner'
+import { useAIState, useUIState } from 'ai/rsc';
+import { usePathname, useRouter } from 'next/navigation';
+import { useEffect, useState } from 'react';
+import { toast } from 'sonner';
+
+import { ChatList } from '@/components/chat-list';
+import { ChatPanel } from '@/components/chat-panel';
+import { EmptyScreen } from '@/components/empty-screen';
+import {
+    Select, SelectContent, SelectItem, SelectTrigger, SelectValue
+} from '@/components/ui/select';
+import { useLocalStorage } from '@/lib/hooks/use-local-storage';
+import { useScrollAnchor } from '@/lib/hooks/use-scroll-anchor';
+import { Message, Session } from '@/lib/types';
+import { cn } from '@/lib/utils';
 
 export interface ChatProps extends React.ComponentProps<'div'> {
   initialMessages?: Message[]
@@ -25,8 +29,13 @@ export function Chat({ id, className, session, missingKeys }: ChatProps) {
   const [input, setInput] = useState('')
   const [messages] = useUIState()
   const [aiState] = useAIState()
+  const [model, setModel] = useState('gpt-3.5-turbo')
 
   const [_, setNewChatId] = useLocalStorage('newChatId', id)
+
+  const handleModelChange = (value: string) => {
+    setModel(value)
+  }
 
   useEffect(() => {
     if (session?.user) {
@@ -61,6 +70,19 @@ export function Chat({ id, className, session, missingKeys }: ChatProps) {
       className="group w-full overflow-auto pl-0 peer-[[data-state=open]]:lg:pl-[250px] peer-[[data-state=open]]:xl:pl-[300px]"
       ref={scrollRef}
     >
+      <div className="flex items-center justify-between mb-4 px-4 md:px-6 lg:px-8">
+        <Select value={model} onValueChange={handleModelChange}>
+          <SelectTrigger className="w-[200px]">
+            <SelectValue placeholder="Select a model" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="gpt-3.5-turbo">GPT-3.5 Turbo</SelectItem>
+            <SelectItem value="claude-3-haiku-20240307">
+              Claude 3 Haiku
+            </SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
       <div
         className={cn('pb-[200px] pt-4 md:pt-10', className)}
         ref={messagesRef}
@@ -72,12 +94,14 @@ export function Chat({ id, className, session, missingKeys }: ChatProps) {
         )}
         <div className="w-full h-px" ref={visibilityRef} />
       </div>
+
       <ChatPanel
         id={id}
         input={input}
         setInput={setInput}
         isAtBottom={isAtBottom}
         scrollToBottom={scrollToBottom}
+        model={model}
       />
     </div>
   )

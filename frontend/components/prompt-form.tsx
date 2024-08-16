@@ -1,34 +1,32 @@
 'use client'
 
-import * as React from 'react'
-import Textarea from 'react-textarea-autosize'
+import { useActions, useUIState } from 'ai/rsc';
+import { nanoid } from 'nanoid';
+import { useRouter } from 'next/navigation';
+import * as React from 'react';
+import Textarea from 'react-textarea-autosize';
 
-import { useActions, useUIState } from 'ai/rsc'
+import { Button } from '@/components/ui/button';
+import { IconArrowElbow, IconPlus } from '@/components/ui/icons';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { AI } from '@/lib/chat/actions';
+import { useEnterSubmit } from '@/lib/hooks/use-enter-submit';
 
-import { UserMessage } from './stocks/message'
-import { type AI } from '@/lib/chat/actions'
-import { Button } from '@/components/ui/button'
-import { IconArrowElbow, IconPlus } from '@/components/ui/icons'
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger
-} from '@/components/ui/tooltip'
-import { useEnterSubmit } from '@/lib/hooks/use-enter-submit'
-import { nanoid } from 'nanoid'
-import { useRouter } from 'next/navigation'
+import { UserMessage } from './stocks/message';
 
 export function PromptForm({
   input,
-  setInput
+  setInput,
+  model
 }: {
   input: string
   setInput: (value: string) => void
+  model: string
 }) {
   const router = useRouter()
   const { formRef, onKeyDown } = useEnterSubmit()
   const inputRef = React.useRef<HTMLTextAreaElement>(null)
-  const { submitUserMessage } = useActions()
+  const { submitUserMessage } = useActions<typeof AI>()
   const [_, setMessages] = useUIState<typeof AI>()
 
   React.useEffect(() => {
@@ -62,7 +60,7 @@ export function PromptForm({
         ])
 
         // Submit and get response message
-        const responseMessage = await submitUserMessage(value)
+        const responseMessage = await submitUserMessage(value, model)
         setMessages(currentMessages => [...currentMessages, responseMessage])
       }}
     >

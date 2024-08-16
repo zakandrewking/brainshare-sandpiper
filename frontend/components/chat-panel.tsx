@@ -1,16 +1,18 @@
-import * as React from 'react'
+import { useActions, useAIState, useUIState } from 'ai/rsc';
+import { nanoid } from 'nanoid';
+import * as React from 'react';
 
-import { shareChat } from '@/app/actions'
-import { Button } from '@/components/ui/button'
-import { PromptForm } from '@/components/prompt-form'
-import { ButtonScrollToBottom } from '@/components/button-scroll-to-bottom'
-import { IconShare } from '@/components/ui/icons'
-import { FooterText } from '@/components/footer'
-import { ChatShareDialog } from '@/components/chat-share-dialog'
-import { useAIState, useActions, useUIState } from 'ai/rsc'
+import { shareChat } from '@/app/actions';
+import { ButtonScrollToBottom } from '@/components/button-scroll-to-bottom';
+import { ChatShareDialog } from '@/components/chat-share-dialog';
+import { FooterText } from '@/components/footer';
+import { PromptForm } from '@/components/prompt-form';
+import { Button } from '@/components/ui/button';
+import { IconShare } from '@/components/ui/icons';
+
+import { UserMessage } from './stocks/message';
+
 import type { AI } from '@/lib/chat/actions'
-import { nanoid } from 'nanoid'
-import { UserMessage } from './stocks/message'
 
 export interface ChatPanelProps {
   id?: string
@@ -19,6 +21,7 @@ export interface ChatPanelProps {
   setInput: (value: string) => void
   isAtBottom: boolean
   scrollToBottom: () => void
+  model: string
 }
 
 export function ChatPanel({
@@ -27,11 +30,12 @@ export function ChatPanel({
   input,
   setInput,
   isAtBottom,
-  scrollToBottom
+  scrollToBottom,
+  model
 }: ChatPanelProps) {
   const [aiState] = useAIState()
   const [messages, setMessages] = useUIState<typeof AI>()
-  const { submitUserMessage } = useActions()
+  const { submitUserMessage } = useActions<typeof AI>()
   const [shareDialogOpen, setShareDialogOpen] = React.useState(false)
 
   const exampleMessages = [
@@ -83,7 +87,8 @@ export function ChatPanel({
                   ])
 
                   const responseMessage = await submitUserMessage(
-                    example.message
+                    example.message,
+                    model
                   )
 
                   setMessages(currentMessages => [
@@ -130,7 +135,7 @@ export function ChatPanel({
         ) : null}
 
         <div className="space-y-4 border-t bg-background px-4 py-2 shadow-lg sm:rounded-t-xl sm:border md:py-4">
-          <PromptForm input={input} setInput={setInput} />
+          <PromptForm input={input} setInput={setInput} model={model} />
           <FooterText className="hidden sm:block" />
         </div>
       </div>

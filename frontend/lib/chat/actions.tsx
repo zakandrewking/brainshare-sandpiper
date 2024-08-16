@@ -1,40 +1,23 @@
-import 'server-only'
-
+import 'server-only';
 import {
-  createAI,
-  createStreamableUI,
-  getMutableAIState,
-  getAIState,
-  streamUI,
-  createStreamableValue
-} from 'ai/rsc'
-import { openai } from '@ai-sdk/openai'
+    createAI, createStreamableUI, createStreamableValue, getAIState, getMutableAIState, streamUI
+} from 'ai/rsc';
+import { z } from 'zod';
 
-import {
-  spinner,
-  BotCard,
-  BotMessage,
-  SystemMessage,
-  Stock,
-  Purchase
-} from '@/components/stocks'
+import { anthropic } from '@ai-sdk/anthropic';
+import { openai } from '@ai-sdk/openai';
 
-import { z } from 'zod'
-import { EventsSkeleton } from '@/components/stocks/events-skeleton'
-import { Events } from '@/components/stocks/events'
-import { StocksSkeleton } from '@/components/stocks/stocks-skeleton'
-import { Stocks } from '@/components/stocks/stocks'
-import { StockSkeleton } from '@/components/stocks/stock-skeleton'
-import {
-  formatNumber,
-  runAsyncFnWithoutBlocking,
-  sleep,
-  nanoid
-} from '@/lib/utils'
-import { saveChat } from '@/app/actions'
-import { SpinnerMessage, UserMessage } from '@/components/stocks/message'
-import { Chat, Message } from '@/lib/types'
-import { auth } from '@/auth'
+import { saveChat } from '@/app/actions';
+import { auth } from '@/auth';
+import { BotCard, BotMessage, Purchase, spinner, Stock, SystemMessage } from '@/components/stocks';
+import { Events } from '@/components/stocks/events';
+import { EventsSkeleton } from '@/components/stocks/events-skeleton';
+import { SpinnerMessage, UserMessage } from '@/components/stocks/message';
+import { StockSkeleton } from '@/components/stocks/stock-skeleton';
+import { Stocks } from '@/components/stocks/stocks';
+import { StocksSkeleton } from '@/components/stocks/stocks-skeleton';
+import { Chat, Message } from '@/lib/types';
+import { formatNumber, nanoid, runAsyncFnWithoutBlocking, sleep } from '@/lib/utils';
 
 async function confirmPurchase(symbol: string, price: number, amount: number) {
   'use server'
@@ -106,7 +89,15 @@ async function confirmPurchase(symbol: string, price: number, amount: number) {
   }
 }
 
-async function submitUserMessage(content: string) {
+interface UIStateItem {
+  readonly id: string
+  readonly display: React.ReactNode
+}
+
+async function submitUserMessage(
+  content: string,
+  model: string
+): Promise<UIStateItem> {
   'use server'
 
   const aiState = getMutableAIState<typeof AI>()
@@ -127,22 +118,25 @@ async function submitUserMessage(content: string) {
   let textNode: undefined | React.ReactNode
 
   const result = await streamUI({
-    model: openai('gpt-3.5-turbo'),
+    model:
+      model === 'gpt-3.5-turbo'
+        ? openai('gpt-3.5-turbo')
+        : anthropic('claude-3-haiku-20240307'),
     initial: <SpinnerMessage />,
     system: `\
     You are a stock trading conversation bot and you can help users buy stocks, step by step.
     You and the user can discuss stock prices and the user can adjust the amount of stocks they want to buy, or place an order, in the UI.
-    
+
     Messages inside [] means that it's a UI element or a user event. For example:
     - "[Price of AAPL = 100]" means that an interface of the stock price of AAPL is shown to the user.
     - "[User has changed the amount of AAPL to 10]" means that the user has changed the amount of AAPL to 10 in the UI.
-    
+
     If the user requests purchasing a stock, call \`show_stock_purchase_ui\` to show the purchase UI.
     If the user just wants the price, call \`show_stock_price\` to show the price.
     If you want to show trending stocks, call \`list_stocks\`.
     If you want to show events, call \`get_events\`.
     If the user wants to sell stock, or complete another impossible task, respond that you are a demo and cannot do that.
-    
+
     Besides that, you can also chat with users and do some calculations if needed.`,
     messages: [
       ...aiState.get().messages.map((message: any) => ({
@@ -489,18 +483,21 @@ export type AIState = {
   messages: Message[]
 }
 
+const initialAIState: AIState = { chatId: nanoid(), messages: [] }
+
 export type UIState = {
   id: string
   display: React.ReactNode
 }[]
+const initialUIState: UIState = []
 
-export const AI = createAI<AIState, UIState>({
+export const AI = createAI({
   actions: {
     submitUserMessage,
     confirmPurchase
   },
-  initialUIState: [],
-  initialAIState: { chatId: nanoid(), messages: [] },
+  initialUIState,
+  initialAIState,
   onGetUIState: async () => {
     'use server'
 
