@@ -1,10 +1,13 @@
 import 'server-only';
+import 'openai/shims/node';
 import {
     createAI, createStreamableUI, createStreamableValue, getAIState, getMutableAIState, streamUI
 } from 'ai/rsc';
 import { z } from 'zod';
+import { fetch, ProxyAgent } from 'undici';
+import { readFileSync } from 'fs';
 
-import { anthropic } from '@ai-sdk/anthropic';
+import { createAnthropic } from '@ai-sdk/anthropic';
 import { openai } from '@ai-sdk/openai';
 
 import { saveChat } from '@/app/actions';
@@ -18,6 +21,29 @@ import { Stocks } from '@/components/stocks/stocks';
 import { StocksSkeleton } from '@/components/stocks/stocks-skeleton';
 import { Chat, Message } from '@/lib/types';
 import { formatNumber, nanoid, runAsyncFnWithoutBlocking, sleep } from '@/lib/utils';
+
+import { systemPrompt } from './prompts';
+
+const ca = readFileSync('certs/http-toolkit-ca-certificate.crt')
+const host = 'localhost'
+const enableTrace = true
+const servername = 'brainshare.io'
+
+const anthropic = createAnthropic({
+  // vercel ai sdk expects client fetch types, but we are using undici to set up
+  // a proxy, so ignore the types here
+  fetch: (url: any, init?: any): any => {
+    return fetch(url, {
+      ...init,
+      dispatcher: new ProxyAgent({
+        uri: 'https://' + host + ':8000',
+        connect: { ca, servername, host, enableTrace },
+        proxyTls: { ca, servername, host, enableTrace },
+        requestTls: { ca, servername, host, enableTrace }
+      })
+    })
+  }
+})
 
 async function confirmPurchase(symbol: string, price: number, amount: number) {
   'use server'
@@ -117,27 +143,15 @@ async function submitUserMessage(
   let textStream: undefined | ReturnType<typeof createStreamableValue<string>>
   let textNode: undefined | React.ReactNode
 
+  console.log({ systemPrompt })
+
   const result = await streamUI({
     model:
       model === 'gpt-3.5-turbo'
         ? openai('gpt-3.5-turbo')
-        : anthropic('claude-3-haiku-20240307'),
+        : anthropic('claude-3-5-sonnet-20240620'),
     initial: <SpinnerMessage />,
-    system: `\
-    You are a stock trading conversation bot and you can help users buy stocks, step by step.
-    You and the user can discuss stock prices and the user can adjust the amount of stocks they want to buy, or place an order, in the UI.
-
-    Messages inside [] means that it's a UI element or a user event. For example:
-    - "[Price of AAPL = 100]" means that an interface of the stock price of AAPL is shown to the user.
-    - "[User has changed the amount of AAPL to 10]" means that the user has changed the amount of AAPL to 10 in the UI.
-
-    If the user requests purchasing a stock, call \`show_stock_purchase_ui\` to show the purchase UI.
-    If the user just wants the price, call \`show_stock_price\` to show the price.
-    If you want to show trending stocks, call \`list_stocks\`.
-    If you want to show events, call \`get_events\`.
-    If the user wants to sell stock, or complete another impossible task, respond that you are a demo and cannot do that.
-
-    Besides that, you can also chat with users and do some calculations if needed.`,
+    system: systemPrompt,
     messages: [
       ...aiState.get().messages.map((message: any) => ({
         role: message.role,
@@ -153,16 +167,18 @@ async function submitUserMessage(
 
       if (done) {
         textStream.done()
+        const messages: Message[] = [
+          ...aiState.get().messages,
+          {
+            id: nanoid(),
+            role: 'assistant',
+            content
+          }
+        ]
+        console.log({ messages })
         aiState.done({
           ...aiState.get(),
-          messages: [
-            ...aiState.get().messages,
-            {
-              id: nanoid(),
-              role: 'assistant',
-              content
-            }
-          ]
+          messages: messages
         })
       } else {
         textStream.update(delta)

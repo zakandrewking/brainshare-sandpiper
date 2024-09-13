@@ -67,7 +67,7 @@ export function Chat({ id, className, session, missingKeys }: ChatProps) {
 
   return (
     <div
-      className="group w-full overflow-auto pl-0 peer-[[data-state=open]]:lg:pl-[250px] peer-[[data-state=open]]:xl:pl-[300px]"
+      className="group w-full overflow-auto p-2 peer-[[data-state=open]]:lg:pl-[250px] peer-[[data-state=open]]:xl:pl-[300px]"
       ref={scrollRef}
     >
       <div className="flex items-center justify-between mb-4 px-4 md:px-6 lg:px-8">
@@ -77,9 +77,7 @@ export function Chat({ id, className, session, missingKeys }: ChatProps) {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="gpt-3.5-turbo">GPT-3.5 Turbo</SelectItem>
-            <SelectItem value="claude-3-haiku-20240307">
-              Claude 3 Haiku
-            </SelectItem>
+            <SelectItem value="claude-3-5-sonnet">Claude 3.5 Sonnet</SelectItem>
           </SelectContent>
         </Select>
       </div>
